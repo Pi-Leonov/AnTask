@@ -1,0 +1,296 @@
+openapi: 3.0.1
+info:
+  title: Управление каталогом товаров
+  description: |
+    Апи позволяет просматривать (в том числе контекстно), удалять и добавлять позиции
+    товаров в общий каталог товаров.
+  version: 1.0.0
+paths:
+  /v1/catalog/browse:
+    get:
+      summary: Просмотр каталога товаров
+      description: |
+        Позволяет просмотреть каталог доступных товаров. В зависимости от идентификатора,
+        передается либо полное состояние каталога, либо
+        контекстное состояние каталога (товары, принадлежащие конкретной группе).
+      operationId: getCatalogContents
+      parameters:
+        - name: RqUID
+          description: Уникальный идентификатор запроса
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: OperUID
+          description: |
+            Уникальный идентификатор подзапроса. При первом запросе заполняется
+            значением RqUID. При повторной попытке запроса заполняется значением
+            RqUID первого запроса.
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: spName
+          description: |
+            Идентификатор вызывающей системы. По данному идентификатору осуществляется
+            фильтрация возвращаемых позиций товара по соответствующей группе
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            pattern: ^[A-Za-z0-9_:\-]{1,100}$
+        - name: rqTime
+          description: Время направления запроса
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowseCatalogRs'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    BrowseCatalogRs: 
+      type: object
+      description: Ответ на запрос Каталога товаров.
+      properties:
+        operUID:
+          type: string
+          description: |
+            Уникальный идентификатор подзапроса, ответ на который сформирован.
+          format: uuid
+        systemId:
+          type: string
+          description: Идентикатор вызвавшей системы.
+          minLength: 1
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_:\-]{1,100}$
+        status:
+          $ref: '#/components/schemas/Status'
+        payload:
+          type: array
+          description: Список позиций заказа
+          minItems: 0
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/CatalogEntry'
+      required:
+        - operUID
+        - systemId
+        - status
+        - payload
+      additionalProperties: false
+
+    CatalogEntry:
+      type: object
+      description: Запись из каталога.
+      properties:
+        productID:
+          type: string
+          description: Идентификатор товара
+          format: uuid
+        quantity:
+          type: string
+          description: |
+            Количество позиции в остатках. Может быть целочисленным, и с плавающей точкой.
+          minLength: 1
+          maxLength: 20
+          pattern: ^[0-9]+\.?((?<=[.])[0-9]{0,4})?$
+        unit:
+          type: string
+          description: |
+            Тип единицы измерения.
+            'piece' - штука;
+            'meter' - метр;
+            'liter' - литр;
+            'kilo' - килограмм
+          enum:
+            - piece
+            - meter
+            - liter
+            - kilo
+        productGroups:
+          type: array
+          description: Список категорий, к которым принадлежит товар.
+          minItems: 1
+          maxItems: 1024
+          items:
+            type: string
+            description: Именование категории товара
+            minLength: 1
+            maxLength: 100
+            pattern: ^[A-Za-z_\-]$
+        productFeatures:
+          type: array
+          description: Список характеристик товара
+          minItems: 0
+          maxItems: 1024
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/QualitativeFeature'
+              - $ref: '#/components/schemas/QuantitativeFeature'
+              - $ref: '#/components/schemas/CompositeFeature'
+      required:
+        - productID
+        - quantity
+        - unit
+      additionalProperties: false
+
+    QualitativeFeature:
+      type: object
+      description: Качественная (да/нет) характеристика товара (из справочника)
+      properties:
+        featureID:
+          type: string
+          description: Идентификатор характеристики
+          format: uuid
+        featureName:
+          type: string
+          description: Название характеристики
+          minLength: 1
+          maxLength: 1024
+        featureDescription:
+          type: string
+          description: Описание характеристики
+          minLength: 1
+          maxLength: 4096
+        featureValue:
+          type: boolean
+          description: Значение характеристики
+      required:
+        - featureID
+        - featureName
+        - featureDescription
+        - featureValue
+      additionalProperties: false
+
+    QuantitativeFeature:
+      type: object
+      description: Количественная характеристика товара
+      properties:
+        featureID:
+          type: string
+          description: Идентификатор характеристики
+          format: uuid
+        featureName:
+          type: string
+          description: Название характеристики
+          minLength: 1
+          maxLength: 1024
+        featureDescription:
+          type: string
+          description: Описание характеристики
+          minLength: 1
+          maxLength: 4096
+        featureValue:
+          type: string
+          description: |
+            Значение количественной характеристики. Может быть целочисленным, и с плавающей точкой.
+          minLength: 1
+          maxLength: 20
+          pattern: ^[0-9]+\.?((?<=[.])[0-9]{0,4})?$
+      required:
+        - featureID
+        - featureName
+        - featureDescription
+        - featureValue
+      additionalProperties: false
+
+    CompositeFeature:
+      type: object
+      description: Количественная характеристика товара
+      properties:
+        featureID:
+          type: string
+          description: Идентификатор характеристики
+          format: uuid
+        featureName:
+          type: string
+          description: Название характеристики
+          minLength: 1
+          maxLength: 1024
+        featureDescription:
+          type: string
+          description: Описание характеристики
+          minLength: 1
+          maxLength: 4096
+        featureValue:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items:
+            type: string
+            description: Значение составной характеристики.
+            minLength: 1
+            maxLength: 128
+      required:
+        - featureID
+        - featureName
+        - featureDescription
+        - featureValue
+      additionalProperties: false
+
+    ErrorResponse:
+      type: object
+      description: Ошибочный запрос
+      properties:
+        operUID:
+          type: string
+          description: Уникальный идентификатор подзапроса (При первом запросе заполняется
+            RqUID, при повторной попытке запроса заполняется RqUID первого запроса)
+          format: uuid
+        rqTm:
+          type: string
+          description: Время отправки запроса
+          format: date-time
+        status:
+          $ref: '#/components/schemas/Status'
+      required:
+        - rqTime
+        - status
+      additionalProperties: false
+
+    Status:
+      type: object
+      description: Статус выполнения запроса
+      properties:
+        statusCode:
+          type: string
+          description: |
+            * `success` - Выполнено без ошибок,
+            * `error` - Ошибка при выполнение запроса,
+            * `internal_error` - Внутренняя ошибка сервиса,
+            * `bad_request` - Некорректный запрос,
+            * `unauthorized` - Неавторизованный пользователь
+          example: "success"
+          enum:
+            - "success"
+            - "error"
+            - "internal_error"
+            - "bad_request"
+            - "unauthorized"
+        statusDesc:
+          type: string
+          description: Текст сообщения
+          maxLength: 255
+          pattern: ^(.*)$
+          example: "Выполнено без ошибок"
+      required:
+        - statusCode
+      additionalProperties: false
