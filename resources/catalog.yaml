@@ -101,10 +101,12 @@ components:
       type: object
       description: Запись из каталога.
       properties:
-        productID:
+        entryID:
           type: string
-          description: Идентификатор товара
+          description: Идентификатор записи о Товаре
           format: uuid
+        productData:
+          $ref: '#/components/schemas/ProductData'
         quantity:
           type: string
           description: |
@@ -125,6 +127,12 @@ components:
             - meter
             - liter
             - kilo
+        price:
+         type: string
+         description: Цена товара. Может быть целочисленной, и с плавающей точкой.
+         minLength: 1
+         maxLength: 10
+         pattern: ^[0-9]+\.?((?<=[.])[0-9]{0,2})?$
         productGroups:
           type: array
           description: Список категорий, к которым принадлежит товар.
@@ -147,9 +155,49 @@ components:
               - $ref: '#/components/schemas/QuantitativeFeature'
               - $ref: '#/components/schemas/CompositeFeature'
       required:
-        - productID
+        - entryID
         - quantity
         - unit
+      additionalProperties: false
+
+    ProductData:
+      type: object
+      description: Данные о товаре
+      properties:
+        productID:
+          type: string
+          description: Идентификатор товара (продукта)
+          format: uuid
+        productName:
+          type: string
+          description: Название товара / его линейки
+          minLength: 1
+          maxLength: 256
+          example: "Find"
+        tradeMark:
+          type: string
+          description: Товарный знак
+          minLength: 1
+          maxLength: 256
+          example: "Oppo"
+        modelName:
+          type: string
+          description: Название модели
+          minLength: 1
+          maxLength: 256
+          example: "X2"
+        modelCode:
+          type: string
+          description: Код модели
+          minLength: 1
+          maxLength: 256
+          example: "CPH2023"
+      required:
+        - productID
+        - productName
+        - tradeMark
+        - modelName
+        - modelCode
       additionalProperties: false
 
     QualitativeFeature:
